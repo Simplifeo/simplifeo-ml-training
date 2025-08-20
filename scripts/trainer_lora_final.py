@@ -1,9 +1,9 @@
 import json
 import torch
 from PIL import Image
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, dataloader
 from transformers import Pix2StructForConditionalGeneration, Pix2StructProcessor, Trainer, TrainingArguments
-from peft import LoraConfig, get_peft_model # <-- CORRECTION ICI
+from peft import LoraConfig, get_peft_model
 import argparse
 
 class BankStatementDataset(Dataset):
@@ -17,6 +17,7 @@ class BankStatementDataset(Dataset):
     def __getitem__(self, idx):
         item = self.dataset[idx]
         try:
+            # On s'assure que le chemin est relatif au projet, ce qui est le cas
             image = Image.open(item['image_path'])
         except FileNotFoundError:
             print(f"AVERTISSEMENT : Fichier image non trouvé à {item['image_path']}. Cet exemple sera ignoré.")
@@ -34,11 +35,17 @@ class BankStatementDataset(Dataset):
         return inputs
 
 def collate_fn(batch):
+    # Filtrer les exemples qui ont échoué (ceux qui sont None)
     batch = [item for item in batch if item is not None]
+    
+    # --- CORRECTION ICI ---
+    # Si le lot est vide après filtrage, retourner un dictionnaire vide.
+    # Le Trainer de Hugging Face sait comment gérer cela et sautera simplement ce lot.
     if not batch:
-        return None
-    from torch.utils.data.dataloader import default_collate
-    return default_collate(batch)
+        return {}
+        
+    # Si le lot n'est pas vide, utiliser le collator par défaut
+    return dataloader.default_collate(batch)
 
 def train(args):
     print("Début du fine-tuning LoRA final...")
