@@ -3,13 +3,14 @@ import torch
 import os
 from PIL import Image
 from torch.utils.data import Dataset, dataloader
-from transformers import Pix2StructForConditionalGeneration, Pix2StructProcessor, Trainer, TrainingArguments
+from transformers import Pix2StructForConditionalGeneration, Pix2StructProcessor, Trainer, TrainingArguments, DefaultDataCollator
 from peft import LoraConfig, get_peft_model
 import argparse
 
 MAX_LENGTH = 1024
 
 class BankStatementDataset(Dataset):
+    # ... (inchangé)
     def __init__(self, dataset_path, processor):
         self.dataset = json.load(open(dataset_path))
         self.processor = processor
@@ -22,21 +23,20 @@ class BankStatementDataset(Dataset):
             absolute_image_path = os.path.join(self.project_root, item['image_path'])
             image = Image.open(absolute_image_path)
         except FileNotFoundError:
-            print(f"AVERTISSEMENT : Fichier image non trouvé à {absolute_image_path}. Cet exemple sera ignoré.")
-            return None
+            return None # Le collator gèrera ça
         question = item['question']
         answer = item['answer']
         inputs = self.processor(images=image, text=question, return_tensors="pt", max_length=MAX_LENGTH, padding="max_length", truncation=True)
-        labels = self.processor(text=answer, return_tensors="pt", max_length=MAX_LENGTH, padding="max_length", truncation=True).input_ids
+        labels = self.processor.tokenizer(text=answer, return_tensors="pt", max_length=MAX_LENGTH, padding="max_length", truncation=True).input_ids
         inputs = {k: v.squeeze() for k, v in inputs.items()}
         inputs['labels'] = labels.squeeze()
         return inputs
 
-def collate_fn(batch):
+def collate_fn_filter_none(batch):
     batch = [item for item in batch if item is not None]
     if not batch:
         return {}
-    return dataloader.default_collate(batch)
+    return DefaultDataCollator()(batch)
 
 def train(args):
     print("Début du fine-tuning LoRA final...")
@@ -55,17 +55,19 @@ def train(args):
     dataset = BankStatementDataset(dataset_path=args.dataset_path, processor=processor)
 
     training_args = TrainingArguments(
-        output_dir=args.output_dir, num_train_epochs=args.num_train_epochs,
+        output_dir=args.output_dir,
+        num_train_epochs=args.num_train_epochs,
         per_device_train_batch_size=args.per_device_train_batch_size,
-        learning_rate=args.learning_rate, warmup_steps=10, weight_decay=0.01,
-        logging_dir='./logs', logging_steps=10, save_strategy="epoch", fp16=True,
+        gradient_accumulation_steps=args.gradient_accumulation_steps, # <-- Ajout de l'hyperparamètre
+        learning_rate=args.learning_rate,
+        logging_steps=50,
+        save_strategy="epoch",
+        fp16=True,
     )
 
     trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=dataset,
-        data_collator=collate_fn, # <-- LIGNE RESTAURÉE
+        model=model, args=training_args, train_dataset=dataset,
+        data_collator=collate_fn_filter_none, # On utilise notre collator robuste
     )
     trainer.train()
 
@@ -75,10 +77,12 @@ def train(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fine-tuner un modèle Pix2Struct avec LoRA.")
-    parser.add_argument("--dataset_path", type=str, required=True, help="Chemin vers le fichier dataset JSON.")
-    parser.add_argument("--output_dir", type=str, required=True, help="Dossier où sauvegarder l'adaptateur LoRA.")
-    parser.add_argument("--num_train_epochs", type=int, default=3, help="Nombre d'époques d'entraînement.")
-    parser.add_argument("--per_device_train_batch_size", type=int, default=1, help="Taille du batch par appareil.")
-    parser.add_argument("--learning_rate", type=float, default=1e-5, help="Taux d'apprentissage.")
+    parser.add_argument("--dataset_path", type=str, required=True)
+    parser.add_argument("--output_dir", type=str, required=True)
+    # --- On utilise les hyperparamètres validés comme valeurs par défaut ---
+    parser.add_argument("--num_train_epochs", type=int, default=10)
+    parser.add_argument("--per_device_train_batch_size", type=int, default=1)
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
+    parser.add_argument("--learning_rate", type=float, default=1e-4)
     args = parser.parse_args()
     train(args)
