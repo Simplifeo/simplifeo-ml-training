@@ -1,0 +1,33 @@
+# Fichier de dépendances pour Simplifeo - Version Production Ready (v1.52)
+# Cet ensemble de versions est validé et fonctionnel au 11/08/2025
+
+# --- Core ML Libraries ---
+torch==2.3.1
+torchvision==0.18.1
+torchaudio==2.3.1
+
+# --- Hugging Face Ecosystem ---
+transformers==4.41.2
+accelerate==0.30.1
+peft==0.11.1
+sentencepiece
+
+# --- Data Handling ---
+pandas==2.2.2
+tqdm
+
+# --- Web Framework & Utilities ---
+fastapi
+uvicorn
+pydantic
+Pillow
+python-dotenv
+requests
+
+# --- Google Cloud Libraries ---
+# Pour l'accès à Google Cloud Storage
+google-cloud-storage
+
+# Pour l'authentification de service à service (obtention des ID tokens)
+# C'est l'ajout important qui fait fonctionner la communication avec le Vault.
+google-auth

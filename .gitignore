@@ -1,0 +1,53 @@
+# Fichier .gitignore pour le template de service d'extraction Simplifeo
+
+# --- Environnement de Développement Python ---
+# Ignorer le dossier de l'environnement virtuel
+venv/
+
+# Ignorer les fichiers de cache et les bytecodes compilés de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Fichiers de Configuration des IDE et Éditeurs ---
+# VSCode
+.vscode/
+# PyCharm
+.idea/
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# --- Fichiers Sensibles et de Configuration Locale ---
+# Le fichier .env contient des secrets et des configurations locales, ne jamais le commiter.
+.env
+*.env.*.local
+# NE JAMAIS commiter de fichiers de clés
+gcp-key.json
+*.pem
+
+# --- Données et Scripts de Test Locaux ---
+# Le dossier 'data' contient des images de test et le stockage GCS local,
+# qui n'ont pas leur place dans le dépôt Git.
+models/base/
+
+# Les scripts utilitaires ne font pas partie de l'application elle-même.
+#scripts/
+
+# Les dossiers de test des dépendances (ex: pytest cache)
+.pytest_cache/
+.tox/
+
+# --- Fichiers de Build et de Dépendances ---
+# Dossiers de build
+build/
+dist/
+*.egg-info/
+
+# Fichiers de log
+*.log
+
+# Fichiers de base de données locaux (si utilisés)
+*.sqlite3
+*.db
