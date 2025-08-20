@@ -1,19 +1,20 @@
 import json
 import torch
-import os # <-- Ajout important
+import os
 from PIL import Image
 from torch.utils.data import Dataset, dataloader
 from transformers import Pix2StructForConditionalGeneration, Pix2StructProcessor, Trainer, TrainingArguments
 from peft import LoraConfig, get_peft_model
 import argparse
 
+# --- HYPERPARAMÈTRE CRUCIAL ---
+# Définit la longueur maximale des séquences. Doit être assez grand pour contenir le JSON.
+MAX_LENGTH = 1024
+
 class BankStatementDataset(Dataset):
     def __init__(self, dataset_path, processor):
         self.dataset = json.load(open(dataset_path))
         self.processor = processor
-        # --- AMÉLIORATION DE ROBUSTESSE ---
-        # On déduit le répertoire racine du projet à partir du chemin du dataset
-        # Ex: si dataset_path est '/content/proj/data/dataset.json', project_root sera '/content/proj'
         self.project_root = os.path.dirname(os.path.dirname(dataset_path))
 
     def __len__(self):
@@ -22,7 +23,6 @@ class BankStatementDataset(Dataset):
     def __getitem__(self, idx):
         item = self.dataset[idx]
         try:
-            # On construit un chemin absolu pour être sûr de trouver l'image
             absolute_image_path = os.path.join(self.project_root, item['image_path'])
             image = Image.open(absolute_image_path)
         except FileNotFoundError:
@@ -32,8 +32,23 @@ class BankStatementDataset(Dataset):
         question = item['question']
         answer = item['answer']
         
-        inputs = self.processor(images=image, text=question, return_tensors="pt")
-        labels = self.processor(text=answer, return_tensors="pt").input_ids
+        # --- CORRECTION DE LA TOKENISATION ---
+        # On force la troncature et le padding à MAX_LENGTH pour les entrées ET les étiquettes.
+        inputs = self.processor(
+            images=image, 
+            text=question, 
+            return_tensors="pt",
+            max_length=MAX_LENGTH,
+            padding="max_length",
+            truncation=True
+        )
+        labels = self.processor(
+            text=answer, 
+            return_tensors="pt",
+            max_length=MAX_LENGTH,
+            padding="max_length",
+            truncation=True
+        ).input_ids
         
         inputs = {k: v.squeeze() for k, v in inputs.items()}
         inputs['labels'] = labels.squeeze()
@@ -48,7 +63,6 @@ def collate_fn(batch):
 
 def train(args):
     print("Début du fine-tuning LoRA final...")
-    # ... (le reste de la fonction est inchangé)
     model_name = "google/pix2struct-base"
     model = Pix2StructForConditionalGeneration.from_pretrained(model_name)
     processor = Pix2StructProcessor.from_pretrained(model_name)
