@@ -3,7 +3,7 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from transformers import Pix2StructForConditionalGeneration, Pix2StructProcessor, Trainer, TrainingArguments
-from peft import LoraConfig, get_pe_model
+from peft import LoraConfig, get_peft_model # <-- CORRECTION ICI
 import argparse
 
 class BankStatementDataset(Dataset):
@@ -37,9 +37,6 @@ def collate_fn(batch):
     batch = [item for item in batch if item is not None]
     if not batch:
         return None
-    # This is a simplified collate function. For more complex scenarios,
-    # you might need to pad tensors to the same length.
-    # The default collate should work if all tensors in a batch have the same shape after filtering None.
     from torch.utils.data.dataloader import default_collate
     return default_collate(batch)
 
