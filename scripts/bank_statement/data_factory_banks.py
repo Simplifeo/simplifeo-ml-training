@@ -7,8 +7,9 @@ from faker import Faker
 from PIL import Image, ImageDraw, ImageFont
 
 # --- CONFIGURATION ---
-TOTAL_STATEMENTS = 100  # Le nombre d'images à générer
+TOTAL_STATEMENTS = 500  # Le nombre d'images à générer
 OUTPUT_DIR = "data/synthetic_bank_statements" # Le dossier de sortie
+DATA_DIR = "data"
 
 # Initialiser le générateur de fausses données en français
 fake = Faker('fr_FR')
@@ -145,7 +146,7 @@ def main():
     # Créer le dossier de sortie s'il n'existe pas
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
-    csv_file_path = os.path.join(OUTPUT_DIR, "ground_truth.csv")
+    csv_file_path = os.path.join(DATA_DIR, "ground_truth.csv")
     
     # Définir les en-têtes pour notre fichier de vérité
     csv_headers = ["file_name", "account_holder", "bank_name", "iban", "period", "start_balance", "end_balance", "transactions_json"]
