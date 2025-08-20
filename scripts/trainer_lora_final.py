@@ -1,5 +1,6 @@
 import json
 import torch
+import os # <-- Ajout important
 from PIL import Image
 from torch.utils.data import Dataset, dataloader
 from transformers import Pix2StructForConditionalGeneration, Pix2StructProcessor, Trainer, TrainingArguments
@@ -10,6 +11,10 @@ class BankStatementDataset(Dataset):
     def __init__(self, dataset_path, processor):
         self.dataset = json.load(open(dataset_path))
         self.processor = processor
+        # --- AMÉLIORATION DE ROBUSTESSE ---
+        # On déduit le répertoire racine du projet à partir du chemin du dataset
+        # Ex: si dataset_path est '/content/proj/data/dataset.json', project_root sera '/content/proj'
+        self.project_root = os.path.dirname(os.path.dirname(dataset_path))
 
     def __len__(self):
         return len(self.dataset)
@@ -17,10 +22,11 @@ class BankStatementDataset(Dataset):
     def __getitem__(self, idx):
         item = self.dataset[idx]
         try:
-            # On s'assure que le chemin est relatif au projet, ce qui est le cas
-            image = Image.open(item['image_path'])
+            # On construit un chemin absolu pour être sûr de trouver l'image
+            absolute_image_path = os.path.join(self.project_root, item['image_path'])
+            image = Image.open(absolute_image_path)
         except FileNotFoundError:
-            print(f"AVERTISSEMENT : Fichier image non trouvé à {item['image_path']}. Cet exemple sera ignoré.")
+            print(f"AVERTISSEMENT : Fichier image non trouvé à {absolute_image_path}. Cet exemple sera ignoré.")
             return None
         
         question = item['question']
@@ -35,21 +41,14 @@ class BankStatementDataset(Dataset):
         return inputs
 
 def collate_fn(batch):
-    # Filtrer les exemples qui ont échoué (ceux qui sont None)
     batch = [item for item in batch if item is not None]
-    
-    # --- CORRECTION ICI ---
-    # Si le lot est vide après filtrage, retourner un dictionnaire vide.
-    # Le Trainer de Hugging Face sait comment gérer cela et sautera simplement ce lot.
     if not batch:
         return {}
-        
-    # Si le lot n'est pas vide, utiliser le collator par défaut
     return dataloader.default_collate(batch)
 
 def train(args):
     print("Début du fine-tuning LoRA final...")
-
+    # ... (le reste de la fonction est inchangé)
     model_name = "google/pix2struct-base"
     model = Pix2StructForConditionalGeneration.from_pretrained(model_name)
     processor = Pix2StructProcessor.from_pretrained(model_name)
