@@ -63,7 +63,7 @@ def collate_fn(batch):
 
 def train(args):
     print("Début du fine-tuning LoRA final...")
-    model_name = "google/pix2struct-base"
+    model_name = "google/pix2struct-docvqa-base"
     model = Pix2StructForConditionalGeneration.from_pretrained(model_name)
     processor = Pix2StructProcessor.from_pretrained(model_name)
 
