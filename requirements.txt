@@ -1,33 +1,62 @@
-# Fichier de dépendances pour Simplifeo - Version Production Ready (v1.52)
-# Cet ensemble de versions est validé et fonctionnel au 11/08/2025
-
-# --- Core ML Libraries ---
-torch==2.3.1
-torchvision==0.18.1
-torchaudio==2.3.1
-
-# --- Hugging Face Ecosystem ---
-transformers==4.41.2
 accelerate==0.30.1
-peft==0.11.1
-sentencepiece
-
-# --- Data Handling ---
+annotated-types==0.7.0
+anyio==4.10.0
+cachetools==5.5.2
+certifi==2025.8.3
+charset-normalizer==3.4.3
+click==8.2.1
+Faker==37.5.3
+fastapi==0.116.1
+filelock==3.19.1
+fsspec==2025.7.0
+google-api-core==2.25.1
+google-auth==2.40.3
+google-cloud-core==2.4.3
+google-cloud-storage==3.3.0
+google-crc32c==1.7.1
+google-resumable-media==2.7.2
+googleapis-common-protos==1.70.0
+h11==0.16.0
+hf-xet==1.1.8
+huggingface-hub==0.34.4
+idna==3.10
+Jinja2==3.1.6
+MarkupSafe==3.0.2
+mpmath==1.3.0
+networkx==3.5
+numpy==2.3.2
+packaging==25.0
 pandas==2.2.2
-tqdm
-
-# --- Web Framework & Utilities ---
-fastapi
-uvicorn
-pydantic
-Pillow
-python-dotenv
-requests
-
-# --- Google Cloud Libraries ---
-# Pour l'accès à Google Cloud Storage
-google-cloud-storage
-
-# Pour l'authentification de service à service (obtention des ID tokens)
-# C'est l'ajout important qui fait fonctionner la communication avec le Vault.
-google-auth
+peft==0.11.1
+pillow==11.3.0
+proto-plus==1.26.1
+protobuf==6.32.0
+psutil==7.0.0
+pyasn1==0.6.1
+pyasn1_modules==0.4.2
+pydantic==2.11.7
+pydantic_core==2.33.2
+python-dateutil==2.9.0.post0
+python-dotenv==1.1.1
+pytz==2025.2
+PyYAML==6.0.2
+regex==2025.7.34
+requests==2.32.5
+rsa==4.9.1
+safetensors==0.6.2
+sentencepiece==0.2.1
+six==1.17.0
+sniffio==1.3.1
+starlette==0.47.2
+sympy==1.14.0
+tokenizers==0.19.1
+torch==2.3.1
+torchaudio==2.3.1
+torchvision==0.18.1
+tqdm==4.67.1
+transformers==4.41.2
+typing-inspection==0.4.1
+typing_extensions==4.14.1
+tzdata==2025.2
+urllib3==2.5.0
+uvicorn==0.35.0
