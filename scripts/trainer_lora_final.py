@@ -3,10 +3,9 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from transformers import Pix2StructForConditionalGeneration, Pix2StructProcessor, Trainer, TrainingArguments
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, get_pe_model
 import argparse
 
-# --- Classe Dataset (inchangée) ---
 class BankStatementDataset(Dataset):
     def __init__(self, dataset_path, processor):
         self.dataset = json.load(open(dataset_path))
@@ -17,13 +16,11 @@ class BankStatementDataset(Dataset):
 
     def __getitem__(self, idx):
         item = self.dataset[idx]
-        # Gérer les cas où le chemin de l'image pourrait être manquant
         try:
             image = Image.open(item['image_path'])
         except FileNotFoundError:
             print(f"AVERTISSEMENT : Fichier image non trouvé à {item['image_path']}. Cet exemple sera ignoré.")
-            # Retourner un tenseur vide ou gérer l'erreur autrement si nécessaire
-            return None 
+            return None
         
         question = item['question']
         answer = item['answer']
@@ -36,14 +33,16 @@ class BankStatementDataset(Dataset):
         
         return inputs
 
-# --- Fonction pour filtrer les éléments None (images non trouvées) ---
 def collate_fn(batch):
     batch = [item for item in batch if item is not None]
     if not batch:
         return None
-    return torch.utils.data.dataloader.default_collate(batch)
+    # This is a simplified collate function. For more complex scenarios,
+    # you might need to pad tensors to the same length.
+    # The default collate should work if all tensors in a batch have the same shape after filtering None.
+    from torch.utils.data.dataloader import default_collate
+    return default_collate(batch)
 
-# --- Fonction d'entraînement (corrigée) ---
 def train(args):
     print("Début du fine-tuning LoRA final...")
 
@@ -51,12 +50,10 @@ def train(args):
     model = Pix2StructForConditionalGeneration.from_pretrained(model_name)
     processor = Pix2StructProcessor.from_pretrained(model_name)
 
-    # --- CORRECTION ICI ---
-    # On utilise les noms de modules corrects pour Pix2Struct
     lora_config = LoraConfig(
         r=16,
         lora_alpha=32,
-        target_modules=["query", "key", "value"], # <-- Noms corrigés
+        target_modules=["query", "key", "value"],
         lora_dropout=0.05,
         bias="none",
     )
@@ -82,7 +79,7 @@ def train(args):
         model=model,
         args=training_args,
         train_dataset=dataset,
-        data_collator=collate_fn, # Ajout du collator pour gérer les images manquantes
+        data_collator=collate_fn,
     )
     trainer.train()
 
@@ -91,4 +88,12 @@ def train(args):
     print(f"Modèle sauvegardé dans {args.output_dir}")
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Fine-tuner un modèle P
+    parser = argparse.ArgumentParser(description="Fine-tuner un modèle Pix2Struct avec LoRA.")
+    parser.add_argument("--dataset_path", type=str, required=True, help="Chemin vers le fichier dataset JSON.")
+    parser.add_argument("--output_dir", type=str, required=True, help="Dossier où sauvegarder l'adaptateur LoRA.")
+    parser.add_argument("--num_train_epochs", type=int, default=3, help="Nombre d'époques d'entraînement.")
+    parser.add_argument("--per_device_train_batch_size", type=int, default=1, help="Taille du batch par appareil.")
+    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Taux d'apprentissage.")
+    
+    args = parser.parse_args()
+    train(args)
