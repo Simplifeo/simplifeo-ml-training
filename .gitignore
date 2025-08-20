@@ -3,6 +3,7 @@
 # --- Environnement de Développement Python ---
 # Ignorer le dossier de l'environnement virtuel
 venv/
+.venv/
 
 # Ignorer les fichiers de cache et les bytecodes compilés de Python
 __pycache__/
@@ -30,6 +31,7 @@ gcp-key.json
 # --- Données et Scripts de Test Locaux ---
 # Le dossier 'data' contient des images de test et le stockage GCS local,
 # qui n'ont pas leur place dans le dépôt Git.
+data/
 models/base/
 
 # Les scripts utilitaires ne font pas partie de l'application elle-même.
@@ -51,3 +53,7 @@ dist/
 # Fichiers de base de données locaux (si utilisés)
 *.sqlite3
 *.db
+# Artefacts de modèles (ils seront sur Drive)
+*.safetensors
+*.pt
+*.bin
