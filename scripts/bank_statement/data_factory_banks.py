@@ -7,7 +7,7 @@ from faker import Faker
 from PIL import Image, ImageDraw, ImageFont
 
 # --- CONFIGURATION ---
-TOTAL_STATEMENTS = 500  # On commence avec 500 pour cette expérience
+TOTAL_STATEMENTS = 500
 OUTPUT_DIR = "data/synthetic_bank_statements"
 DATA_DIR = "data"
 
@@ -51,9 +51,9 @@ def generate_statement_data():
         "transactions": transactions
     }
 
-# --- NOUVELLE FONCTION DE CRÉATION D'IMAGE DYNAMIQUE ---
+# --- FONCTION DE CRÉATION D'IMAGE ENTIÈREMENT REVUE ---
 def create_dynamic_statement_image(data, output_path):
-    """Crée une image PNG avec une mise en page aléatoire."""
+    """Crée une image PNG avec une mise en page et des libellés très variés."""
     width, height = 800, 1100
     image = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(image)
@@ -66,46 +66,60 @@ def create_dynamic_statement_image(data, output_path):
     except IOError:
         font_regular, font_bold, font_title = ImageFont.load_default(), ImageFont.load_default(), ImageFont.load_default()
 
-    # --- VARIATIONS DE MISE EN PAGE ---
     margin = 40
     y_pos = margin + random.randint(0, 20)
     
-    # Position du titre (centré ou à gauche)
+    # --- 1. Titre et Nom de la Banque (positions variables) ---
     title_text = random.choice(["RELEVÉ DE COMPTE", "RELEVE BANCAIRE", "SITUATION DE COMPTE"])
-    if random.choice([True, False]):
-        draw.text((margin, y_pos), title_text, fill="black", font=font_title)
-    else:
-        text_width = draw.textlength(title_text, font=font_title)
-        draw.text(((width - text_width) / 2, y_pos), title_text, fill="black", font=font_title)
-    y_pos += random.randint(50, 70)
-
-    # Position du bloc d'infos (gauche/droite ou droite/gauche)
-    left_x = margin
-    right_x = width - margin - 300 # Largeur approx du bloc de droite
+    draw.text((random.randint(margin, width // 2), y_pos), title_text, fill="black", font=font_title)
+    y_pos += random.randint(40, 60)
+    draw.text((random.randint(margin, width // 2), y_pos), data['bank_name'], fill="black", font=font_bold)
     
-    if random.choice([True, False]):
-        bank_pos, info_pos = left_x, right_x
-    else:
-        bank_pos, info_pos = right_x, left_x
-
-    # Bloc Banque
-    draw.text((bank_pos, y_pos), data['bank_name'], fill="black", font=font_bold)
+    # --- 2. Création de 5 blocs d'information indépendants ---
     
-    # Bloc Infos Titulaire
-    info_y = y_pos
-    draw.text((info_pos, info_y), f"Titulaire : {data['account_holder']}", fill="black", font=font_regular)
-    info_y += random.randint(18, 22)
-    draw.text((info_pos, info_y), data['full_address_display'], fill="black", font=font_regular)
-    info_y += random.randint(18, 22)
-    draw.text((info_pos, info_y), f"N° de Compte : {data['account_number']}", fill="black", font=font_regular)
-    info_y += random.randint(18, 22)
-    draw.text((info_pos, info_y), f"IBAN : {data['iban']}", fill="black", font=font_regular)
-    info_y += random.randint(18, 22)
-    draw.text((info_pos, info_y), f"Période : {data['period']}", fill="black", font=font_regular)
+    # Variation des libellés
+    holder_label = random.choice(["Titulaire :", "Client :", "Nom :", ""])
+    account_label = random.choice(["N° de Compte :", "Compte :", "Compte N° :", ""])
+    iban_label = random.choice(["IBAN :", "IBAN N° :", ""])
+    period_label = random.choice(["Période :", "Du", ""])
     
-    y_pos = max(y_pos + 60, info_y + 40)
+    # On ajoute le libellé à la valeur, ou pas si le libellé est vide
+    holder_text = f"{holder_label} {data['account_holder']}" if holder_label else data['account_holder']
+    account_text = f"{account_label} {data['account_number']}" if account_label else data['account_number']
+    iban_text = f"{iban_label} {data['iban']}" if iban_label else data['iban']
+    period_text = f"{period_label} {data['period']}" if period_label else data['period']
+    
+    info_blocks = [
+        holder_text,
+        data['full_address_display'], # L'adresse n'a généralement pas de libellé
+        account_text,
+        iban_text,
+        period_text
+    ]
+    
+    # On mélange l'ordre des blocs pour une variété maximale
+    random.shuffle(info_blocks)
+    
+    # --- 3. Placement aléatoire des blocs d'information ---
+    
+    # On définit des "zones" de placement possibles sur la page
+    available_zones = [
+        (margin, 150), (width // 2, 150), # Ligne 1
+        (margin, 250), (width // 2, 250), # Ligne 2
+        (margin, 350)                     # Ligne 3
+    ]
+    random.shuffle(available_zones)
+    
+    max_y_after_blocks = 0
+    for i, block_text in enumerate(info_blocks):
+        x, y = available_zones[i]
+        draw.text((x, y), block_text, fill="black", font=font_regular)
+        text_height = 20 # Approximation
+        max_y_after_blocks = max(max_y_after_blocks, y + text_height)
 
-    # Tableau des transactions
+    y_pos = max_y_after_blocks + random.randint(40, 80)
+    
+    # --- 4. Tableau des transactions (inchangé) ---
     draw.line([(margin, y_pos), (width - margin, y_pos)], fill="black", width=2)
     y_pos += 10
     draw.text((margin + 10, y_pos), "Date", fill="black", font=font_bold)
@@ -123,19 +137,16 @@ def create_dynamic_statement_image(data, output_path):
         draw.text((width - margin - 120, y_pos), trans['credit'], fill="black", font=font_regular)
         y_pos += random.randint(22, 28)
 
-    # Bloc des soldes (position aléatoire)
+    # --- 5. Bloc des soldes (position aléatoire) ---
     y_pos += random.randint(30, 60)
-    if random.choice([True, False]):
-        balance_x = width - margin - 300
-    else:
-        balance_x = margin
-        
+    balance_x = random.choice([margin, width - margin - 300])
     draw.text((balance_x, y_pos), f"Solde précédent : {data['start_balance']} €", fill="black", font=font_regular)
     y_pos += 25
     draw.text((balance_x, y_pos), f"Nouveau solde : {data['end_balance']} €", fill="black", font=font_bold)
 
     image.save(output_path)
 
+# ... La fonction main() reste inchangée, elle appelle maintenant la nouvelle fonction de dessin ...
 def main():
     print(f"Début de la génération de {TOTAL_STATEMENTS} relevés bancaires synthétiques...")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -151,8 +162,7 @@ def main():
             statement_data = generate_statement_data()
             file_name = f"statement_{i:04d}.png"
             output_path = os.path.join(OUTPUT_DIR, file_name)
-            # --- On appelle la nouvelle fonction dynamique ---
-            create_dynamic_statement_image(statement_data, output_path)
+            create_dynamic_statement_image(statement_data, output_path) # Appel de la nouvelle fonction
             row_to_write = {
                 "file_name": file_name, "account_holder": statement_data['account_holder'],
                 "address_street": statement_data['address_street'], "address_postcode": statement_data['address_postcode'],
