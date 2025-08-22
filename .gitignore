@@ -57,3 +57,4 @@ dist/
 *.safetensors
 *.pt
 *.bin
+.DS_Store
