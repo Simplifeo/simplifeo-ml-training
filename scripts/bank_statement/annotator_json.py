@@ -1,3 +1,5 @@
+# scripts/bank_statement/annotator_json.py (Version Finale Corrigée)
+
 import pandas as pd
 import json
 import os
@@ -9,30 +11,7 @@ from datetime import datetime
 GROUND_TRUTH_PATH = 'data/ground_truth.csv' 
 IMAGES_BASE_PATH = 'data/synthetic_bank_statements/'
 OUTPUT_DATASET_PATH = 'data/dataset_json.json'
-
-# --- MISE À JOUR DU SCHÉMA JSON ---
-# On ne l'inclut plus dans le prompt, mais on le garde ici pour référence
-JSON_SCHEMA = {
-    "banque": "string",
-    "numero_compte": "string", # Nouveau champ
-    "iban": "string",
-    "titulaire": "string",
-    "adresse": { # Nouveau champ structuré
-        "rue": "string",
-        "code_postal": "string",
-        "ville": "string"
-    },
-    "periode": { "debut": "YYYY-MM-DD", "fin": "YYYY-MM-DD" },
-    "solde_initial": "float",
-    "solde_final": "float",
-    "transactions": [
-      { "date": "YYYY-MM-DD", "description": "string", "debit": "float", "credit": "float" }
-    ]
-}
-
 INSTRUCTION_PROMPT = "Extrais les informations de ce document et retourne-les au format JSON."
-
-# --- SCRIPT ---
 
 def format_date(date_str: str) -> str:
     if not date_str or pd.isna(date_str): return None
@@ -47,9 +26,8 @@ def parse_period(period_str: str) -> tuple[str, str]:
     except Exception: return None, None
 
 def create_json_object(row: pd.Series) -> dict:
-    """Construit l'objet JSON complet pour une ligne du DataFrame."""
+    """Construit l'objet JSON complet en s'assurant que les valeurs numériques sont des chaînes."""
     start_date, end_date = parse_period(row.get('period'))
-
     transactions_list = []
     try:
         transactions_raw = ast.literal_eval(row.get('transactions_json', '[]'))
@@ -57,31 +35,31 @@ def create_json_object(row: pd.Series) -> dict:
             transactions_list.append({
                 "date": format_date(trans.get('date')),
                 "description": trans.get('description'),
-                "debit": float(trans['debit']) if trans.get('debit') else None,
-                "credit": float(trans['credit']) if trans.get('credit') else None
+                # --- CORRECTION : Forcer les nombres en chaînes ---
+                "debit": str(trans['debit']) if trans.get('debit') and str(trans['debit']).strip() else None,
+                "credit": str(trans['credit']) if trans.get('credit') and str(trans['credit']).strip() else None
             })
     except (ValueError, SyntaxError): pass
 
-    # --- MISE À JOUR DE LA CRÉATION DU JSON ---
     json_output = {
         "banque": row.get('bank_name'),
-        "numero_compte": row.get('account_number'), # Ajout du numéro de compte
+        "numero_compte": row.get('account_number'),
         "iban": row.get('iban'),
         "titulaire": row.get('account_holder'),
-        "adresse": { # Ajout de l'adresse structurée
+        "adresse": {
             "rue": row.get('address_street'),
-            "code_postal": row.get('address_postcode'),
+            "code_postal": str(row.get('address_postcode')) if pd.notna(row.get('address_postcode')) else None,
             "ville": row.get('address_city')
         },
         "periode": { "debut": start_date, "fin": end_date },
-        "solde_initial": float(row.get('start_balance')) if pd.notna(row.get('start_balance')) else None,
-        "solde_final": float(row.get('end_balance')) if pd.notna(row.get('end_balance')) else None,
+        # --- CORRECTION : Forcer les nombres en chaînes ---
+        "solde_initial": str(row.get('start_balance')) if pd.notna(row.get('start_balance')) else None,
+        "solde_final": str(row.get('end_balance')) if pd.notna(row.get('end_balance')) else None,
         "transactions": transactions_list
     }
     return json_output
 
 def generate_json_dataset():
-    """Fonction principale qui lit les données, les transforme et sauvegarde le nouveau jeu de données."""
     print(f"Chargement des données depuis : {GROUND_TRUTH_PATH}")
     try:
         df = pd.read_csv(GROUND_TRUTH_PATH).fillna(value=pd.NA)
@@ -91,25 +69,17 @@ def generate_json_dataset():
 
     print(f"{len(df)} enregistrements trouvés.")
     new_dataset = []
-    
     print("Génération du nouveau jeu de données au format (Instruction, JSON_Complet)...")
     for _, row in tqdm(df.iterrows(), total=df.shape[0]):
         json_obj = create_json_object(row)
         json_string = json.dumps(json_obj, ensure_ascii=False, separators=(',', ':'))
         image_path = os.path.join(IMAGES_BASE_PATH, row['file_name'])
-        
-        new_dataset.append({
-            "image_path": image_path,
-            "question": INSTRUCTION_PROMPT,
-            "answer": json_string
-        })
-        
+        new_dataset.append({"image_path": image_path, "question": INSTRUCTION_PROMPT, "answer": json_string})
+    
     print(f"Sauvegarde du jeu de données final dans : {OUTPUT_DATASET_PATH}")
     with open(OUTPUT_DATASET_PATH, 'w', encoding='utf-8') as f:
         json.dump(new_dataset, f, indent=4, ensure_ascii=False)
-        
     print("Opération terminée avec succès !")
-    print(f"{len(new_dataset)} exemples ont été générés.")
 
 if __name__ == '__main__':
     generate_json_dataset()
