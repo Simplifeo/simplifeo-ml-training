@@ -1,10 +1,18 @@
-# ... (tous les imports et la classe Dataset restent inchangés)
+# scripts/bank_statement/trainer_lora_final.py (Version Finale v8.0)
+
 import json
 import torch
 import os
 from PIL import Image
 from torch.utils.data import Dataset, dataloader
-from transformers import Pix2StructForConditionalGeneration, Pix2StructProcessor, Trainer, TrainingArguments, DefaultDataCollator
+from transformers import (
+    Pix2StructForConditionalGeneration,
+    Pix2StructProcessor,
+    Trainer,
+    TrainingArguments,
+    DefaultDataCollator,
+    EarlyStoppingCallback # <-- Import du Callback
+)
 from peft import LoraConfig, get_peft_model
 import argparse
 from sklearn.model_selection import train_test_split
@@ -62,18 +70,25 @@ def train(args):
     eval_dataset = BankStatementDataset(eval_data, processor, project_root)
     print(f"{len(train_dataset)} exemples d'entraînement, {len(eval_dataset)} exemples de validation.")
 
-    # --- MISE À JOUR DES ARGUMENTS D'ENTRAÎNEMENT ---
+    # --- CONFIGURATION D'ENTRAÎNEMENT FINALE ---
     training_args = TrainingArguments(
         output_dir=args.output_dir,
-        num_train_epochs=args.num_train_epochs,
+        num_train_epochs=args.num_train_epochs, # Sera 10 par défaut
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
         logging_steps=50,
         save_strategy="epoch",
         evaluation_strategy="epoch",
-        # On retire load_best_model_at_end pour éviter le bug. Le dernier checkpoint sera le meilleur.
+        load_best_model_at_end=True, # <-- On garde cette sécurité
+        metric_for_best_model="eval_loss", # <-- On doit spécifier la métrique à surveiller
+        greater_is_better=False, # <-- Pour la loss, plus c'est petit, mieux c'est
         fp16=True,
+    )
+
+    # --- AJOUT DU CALLBACK D'ARRÊT PRÉCOCE ---
+    early_stopping_callback = EarlyStoppingCallback(
+        early_stopping_patience=3, # Arrête si la eval_loss ne s'améliore pas pendant 3 époques
     )
 
     trainer = Trainer(
@@ -82,18 +97,19 @@ def train(args):
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         data_collator=collate_fn_filter_none,
+        callbacks=[early_stopping_callback] # <-- On passe le callback au Trainer
     )
     trainer.train()
 
-    print("Entraînement terminé. Sauvegarde du dernier modèle...")
+    print("Entraînement terminé. Sauvegarde du meilleur modèle...")
     model.save_pretrained(args.output_dir)
-    print(f"Dernier modèle sauvegardé dans {args.output_dir}")
+    print(f"Meilleur modèle sauvegardé dans {args.output_dir}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fine-tuner un modèle Pix2Struct avec LoRA.")
     parser.add_argument("--dataset_path", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
-    parser.add_argument("--num_train_epochs", type=int, default=15)
+    parser.add_argument("--num_train_epochs", type=int, default=10) # <-- Limite à 10 époques
     parser.add_argument("--per_device_train_batch_size", type=int, default=1)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
     parser.add_argument("--learning_rate", type=float, default=1e-4)

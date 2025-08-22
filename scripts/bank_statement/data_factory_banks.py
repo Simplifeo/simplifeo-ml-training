@@ -7,7 +7,7 @@ from faker import Faker
 from PIL import Image, ImageDraw, ImageFont
 
 # --- CONFIGURATION ---
-TOTAL_STATEMENTS = 500
+TOTAL_STATEMENTS = 100
 OUTPUT_DIR = "data/synthetic_bank_statements"
 DATA_DIR = "data"
 
