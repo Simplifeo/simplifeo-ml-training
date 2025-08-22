@@ -1,5 +1,4 @@
-# src/trainer_lora_final.py
-
+# ... (tous les imports et la classe Dataset restent inchangés)
 import json
 import torch
 import os
@@ -8,12 +7,11 @@ from torch.utils.data import Dataset, dataloader
 from transformers import Pix2StructForConditionalGeneration, Pix2StructProcessor, Trainer, TrainingArguments, DefaultDataCollator
 from peft import LoraConfig, get_peft_model
 import argparse
-from sklearn.model_selection import train_test_split # <-- Nouvel import
+from sklearn.model_selection import train_test_split
 
 MAX_LENGTH = 1024
 
 class BankStatementDataset(Dataset):
-    # ... (inchangé)
     def __init__(self, data, processor, project_root):
         self.dataset = data
         self.processor = processor
@@ -36,7 +34,6 @@ class BankStatementDataset(Dataset):
         return inputs
 
 def collate_fn_filter_none(batch):
-    # ... (inchangé)
     batch = [item for item in batch if item is not None]
     if not batch:
         return {}
@@ -53,14 +50,11 @@ def train(args):
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 
-    # --- NOUVELLE LOGIQUE DE GESTION DES DONNÉES ---
     print(f"Chargement et division des données depuis {args.dataset_path}")
     with open(args.dataset_path, 'r') as f:
         full_dataset_data = json.load(f)
     
-    # On divise en 90% pour l'entraînement+validation et 10% pour le test final (non utilisé ici)
     train_val_data, _ = train_test_split(full_dataset_data, test_size=0.1, random_state=42)
-    # On divise le reste en 90% pour l'entraînement et 10% pour la validation
     train_data, eval_data = train_test_split(train_val_data, test_size=0.1, random_state=42)
     
     project_root = os.path.dirname(os.path.dirname(args.dataset_path))
@@ -77,8 +71,8 @@ def train(args):
         learning_rate=args.learning_rate,
         logging_steps=50,
         save_strategy="epoch",
-        evaluation_strategy="epoch", # <-- On évalue à chaque époque
-        load_best_model_at_end=True, # <-- On recharge le meilleur modèle à la fin
+        evaluation_strategy="epoch",
+        # On retire load_best_model_at_end pour éviter le bug. Le dernier checkpoint sera le meilleur.
         fp16=True,
     )
 
@@ -86,20 +80,20 @@ def train(args):
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=eval_dataset, # <-- On fournit le jeu de validation
+        eval_dataset=eval_dataset,
         data_collator=collate_fn_filter_none,
     )
     trainer.train()
 
-    print("Entraînement terminé. Sauvegarde du meilleur modèle...")
+    print("Entraînement terminé. Sauvegarde du dernier modèle...")
     model.save_pretrained(args.output_dir)
-    print(f"Meilleur modèle sauvegardé dans {args.output_dir}")
+    print(f"Dernier modèle sauvegardé dans {args.output_dir}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fine-tuner un modèle Pix2Struct avec LoRA.")
     parser.add_argument("--dataset_path", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
-    parser.add_argument("--num_train_epochs", type=int, default=15) # On met plus d'époques, l'arrêt précoce choisira
+    parser.add_argument("--num_train_epochs", type=int, default=15)
     parser.add_argument("--per_device_train_batch_size", type=int, default=1)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
