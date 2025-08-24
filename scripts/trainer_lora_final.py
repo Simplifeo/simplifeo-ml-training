@@ -1,4 +1,4 @@
-# scripts/bank_statement/trainer_lora_final.py (Version Finale Simplifiée)
+# scripts/bank_statement/trainer_lora_final.py (Version Finale v8.0)
 
 import json
 import torch
@@ -10,7 +10,8 @@ from transformers import (
     Pix2StructProcessor,
     Trainer,
     TrainingArguments,
-    DefaultDataCollator
+    DefaultDataCollator,
+    EarlyStoppingCallback
 )
 from peft import LoraConfig, get_peft_model
 import argparse
@@ -57,15 +58,18 @@ def train(args):
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 
-    print(f"Chargement des données depuis {args.dataset_path}")
+    print(f"Chargement et division des données depuis {args.dataset_path}")
     with open(args.dataset_path, 'r') as f:
-        train_dataset_data = json.load(f) # On utilise tout le dataset pour l'entraînement
+        full_dataset_data = json.load(f)
+    
+    train_val_data, _ = train_test_split(full_dataset_data, test_size=0.1, random_state=42)
+    train_data, eval_data = train_test_split(train_val_data, test_size=0.1, random_state=42)
     
     project_root = os.path.dirname(os.path.dirname(args.dataset_path))
-    train_dataset = BankStatementDataset(train_dataset_data, processor, project_root)
-    print(f"{len(train_dataset)} exemples d'entraînement.")
+    train_dataset = BankStatementDataset(train_data, processor, project_root)
+    eval_dataset = BankStatementDataset(eval_data, processor, project_root)
+    print(f"{len(train_dataset)} exemples d'entraînement, {len(eval_dataset)} exemples de validation.")
 
-    # --- CONFIGURATION D'ENTRAÎNEMENT SIMPLIFIÉE ET ROBUSTE ---
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         num_train_epochs=args.num_train_epochs,
@@ -73,27 +77,34 @@ def train(args):
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
         logging_steps=50,
-        save_strategy="epoch", # On sauvegarde à chaque époque
+        save_strategy="epoch",
+        evaluation_strategy="epoch",
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
+        greater_is_better=False,
         fp16=True,
     )
 
+    # On retire le EarlyStoppingCallback pour éviter le bug KeyError,
+    # load_best_model_at_end est suffisant pour la qualité.
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         data_collator=collate_fn_filter_none,
     )
     trainer.train()
 
-    print("Entraînement terminé. Sauvegarde du dernier modèle...")
+    print("Entraînement terminé. Sauvegarde du meilleur modèle...")
     model.save_pretrained(args.output_dir)
-    print(f"Dernier modèle sauvegardé dans {args.output_dir}")
+    print(f"Meilleur modèle sauvegardé dans {args.output_dir}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fine-tuner un modèle Pix2Struct avec LoRA.")
     parser.add_argument("--dataset_path", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
-    parser.add_argument("--num_train_epochs", type=int, default=10)
+    parser.add_argument("--num_train_epochs", type=int, default=15) # On met une limite haute, load_best_model_at_end choisira
     parser.add_argument("--per_device_train_batch_size", type=int, default=1)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
     parser.add_argument("--learning_rate", type=float, default=1e-4)

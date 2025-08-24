@@ -1,0 +1,14 @@
+{
+  "source_image": "releve.png",
+  "header": {
+    "iban": null,
+    "siret": null,
+    "account_number": null,
+    "period": {
+      "from": "2020-04-01",
+      "to": "2020-04-28"
+    }
+  },
+  "operations": [],
+  "raw_text_preview": "SITUATION DE COMPTE\nCrédit Agricole\nPériode : du 01/04/2020 au 28/04/2020 IBAN : FR4666209074720978191322396\nCompie : N° 19254697358 Tue Klein, 67473 Tessier\nNom : Alexandria de la Albert\n40/04/2020 REMISE DE CHEQUE BLIN BAUDRY SA 165.72\n25/04/2020 RETRAIT DAB MEYER MATHIEU SARL 248.08\n21/04/2020 VIREMENT DE BOUVET GILLES ET FILS 11.37\n26/04/2020 REMISE DE CHEQUE CARON 267.26\n05/04/2020 PAIEMENT CB DUPUIS 301.25\n49/04/2020 RETRAIT DAB LEGENDRE 103.15\nSolde précédent : 892.17 €\nNouveau solde : 684.04 €"
+}
